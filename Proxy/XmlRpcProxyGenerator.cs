@@ -205,7 +205,7 @@ public static class XmlRpcProxyGenerator
             {
                 // Task<T>
                 var resultType = returnType.GetGenericArguments()[0];
-                ImplementAsyncGenericReturn(il, resultLocal, resultType);
+                ImplementAsyncGenericReturn(il, resultLocal, resultType, clientField);
             }
             else
             {
@@ -215,17 +215,18 @@ public static class XmlRpcProxyGenerator
                 il.Emit(OpCodes.Pop);
                 il.Emit(OpCodes.Call, typeof(Task).GetProperty("CompletedTask")!.GetMethod!);
             }
+            il.Emit(OpCodes.Ret); // required for both Task and Task<T> branches
         }
         else
         {
             // Synchronous return
-            ImplementSyncReturn(il, resultLocal, returnType);
+            ImplementSyncReturn(il, resultLocal, returnType, clientField);
         }
 
         typeBuilder.DefineMethodOverride(methodBuilder, method);
     }
 
-    private static void ImplementAsyncGenericReturn(ILGenerator il, LocalBuilder resultLocal, Type resultType)
+    private static void ImplementAsyncGenericReturn(ILGenerator il, LocalBuilder resultLocal, Type resultType, FieldBuilder clientField)
     {
         // Get the value or throw
         il.Emit(OpCodes.Ldloc, resultLocal);
@@ -274,15 +275,27 @@ public static class XmlRpcProxyGenerator
         }
         else
         {
-            // Use ToObject<T>
-            var toObjectMethod = typeof(Core.XmlRpcValue).GetMethod("ToObject", Type.EmptyTypes)!
-                .MakeGenericMethod(resultType);
-            il.Emit(OpCodes.Callvirt, toObjectMethod);
+            // Use ConvertValue so custom converters (e.g. XenRefConverterFactory) are applied
+            var valueLocal = il.DeclareLocal(typeof(Core.XmlRpcValue));
+            il.Emit(OpCodes.Stloc, valueLocal);
+
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldfld, clientField);
+            il.Emit(OpCodes.Ldloc, valueLocal);
+            il.Emit(OpCodes.Ldtoken, resultType);
+            il.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle")!);
+            il.Emit(OpCodes.Callvirt, typeof(IXmlRpcClient).GetMethod("ConvertValue")!);
+
+            if (resultType.IsValueType)
+                il.Emit(OpCodes.Unbox_Any, resultType);
+            else
+                il.Emit(OpCodes.Castclass, resultType);
+
             il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
         }
     }
 
-    private static void ImplementSyncReturn(ILGenerator il, LocalBuilder resultLocal, Type returnType)
+    private static void ImplementSyncReturn(ILGenerator il, LocalBuilder resultLocal, Type returnType, FieldBuilder clientField)
     {
         // Get the value or throw
         il.Emit(OpCodes.Ldloc, resultLocal);
@@ -331,10 +344,22 @@ public static class XmlRpcProxyGenerator
         }
         else
         {
-            // Use ToObject<T>
-            var toObjectMethod = typeof(Core.XmlRpcValue).GetMethod("ToObject", Type.EmptyTypes)!
-                .MakeGenericMethod(returnType);
-            il.Emit(OpCodes.Callvirt, toObjectMethod);
+            // Use ConvertValue so custom converters (e.g. XenRefConverterFactory) are applied
+            var valueLocal = il.DeclareLocal(typeof(Core.XmlRpcValue));
+            il.Emit(OpCodes.Stloc, valueLocal);
+
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldfld, clientField);
+            il.Emit(OpCodes.Ldloc, valueLocal);
+            il.Emit(OpCodes.Ldtoken, returnType);
+            il.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle")!);
+            il.Emit(OpCodes.Callvirt, typeof(IXmlRpcClient).GetMethod("ConvertValue")!);
+
+            if (returnType.IsValueType)
+                il.Emit(OpCodes.Unbox_Any, returnType);
+            else
+                il.Emit(OpCodes.Castclass, returnType);
+
             il.Emit(OpCodes.Ret);
         }
     }

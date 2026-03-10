@@ -49,6 +49,22 @@ public class XmlRpcClient : IXmlRpcClient
         get => _serializer.UseExtendedTypes;
         set => _serializer.UseExtendedTypes = value;
     }
+    
+    /// <summary>
+    /// Registers a custom converter for deserialization.
+    /// </summary>
+    public XmlRpcClient AddConverter(XmlRpcConverter converter)
+    {
+        _serializer.AddConverter(converter);
+        return this;
+    }
+
+    /// <summary>
+    /// Converts an XmlRpcValue to the given type, applying all registered custom converters.
+    /// Used internally by the proxy generator.
+    /// </summary>
+    public object? ConvertValue(XmlRpcValue value, Type targetType)
+        => value.ToObject(targetType, _serializer.Converters);
 
     /// <summary>
     /// Gets the headers that will be sent with each request.
@@ -263,7 +279,7 @@ public class XmlRpcClient : IXmlRpcClient
     {
         var result = await InvokeAndGetResultAsync(methodName, parameters, cancellationToken)
             .ConfigureAwait(false);
-        return result.ToObject<T>();
+        return result.ToObject<T>(_serializer.Converters);
     }
 
     /// <summary>
@@ -316,6 +332,11 @@ public interface IXmlRpcClient : IDisposable
     /// Invokes an XML-RPC method on the server.
     /// </summary>
     Task<XmlRpcResponse> InvokeAsync(string methodName, object?[]? parameters, CancellationToken cancellationToken);
+    
+    /// <summary>
+    /// Invokes an XML-RPC method on the server and returns the result converted to the specified type.
+    /// </summary>
+    Task<T?> InvokeAsync<T>(string methodName, object?[]? parameters, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invokes an XML-RPC method on the server.
@@ -326,6 +347,11 @@ public interface IXmlRpcClient : IDisposable
     /// Creates a proxy interface for the XML-RPC server.
     /// </summary>
     T CreateProxy<T>() where T : class;
+
+    /// <summary>
+    /// Converts an XmlRpcValue to the given type, applying all registered custom converters.
+    /// </summary>
+    object? ConvertValue(XmlRpcValue value, Type targetType);
 }
 
 /// <summary>

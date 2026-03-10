@@ -32,6 +32,22 @@ public class XmlRpcSerializer
     /// </summary>
     public bool Indent { get; set; } = false;
 
+    private readonly List<XmlRpcConverter> _converters = new();
+
+    /// <summary>
+    /// Registers a custom converter.
+    /// </summary>
+    public XmlRpcSerializer AddConverter(XmlRpcConverter converter)
+    {
+        _converters.Add(converter);
+        return this;
+    }
+
+    /// <summary>
+    /// Read-only view of registered converters, passed to ToObject calls.
+    /// </summary>
+    internal IReadOnlyList<XmlRpcConverter> Converters => _converters;
+    
     /// <summary>
     /// Serializes an XML-RPC request to a string.
     /// </summary>

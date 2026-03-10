@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using XmlRpc.Core;
 
 namespace XmlRpc.Client;
 
@@ -20,12 +21,13 @@ public class XmlRpcClientBuilder
     private TimeSpan _timeout = TimeSpan.FromSeconds(100);
     private string? _userAgent;
     private bool _useExtendedTypes = true;
+    private readonly List<XmlRpcConverter> _converters = new();
     private readonly Dictionary<string, string> _headers = new();
     private IWebProxy? _proxy;
     private ICredentials? _credentials;
     private Action<HttpClient>? _configureClient;
     private Action<HttpClientHandler>? _configureHandler;
-
+    
     /// <summary>
     /// Sets the server URL.
     /// </summary>
@@ -78,6 +80,17 @@ public class XmlRpcClientBuilder
     public XmlRpcClientBuilder WithExtendedTypes(bool useExtendedTypes = true)
     {
         _useExtendedTypes = useExtendedTypes;
+        return this;
+    }
+    
+    /// <summary>
+    /// Adds a custom converter for XML-RPC serialization/deserialization.
+    /// </summary>
+    /// <param name="converter">The converter to add.</param>
+    /// <returns></returns>
+    public XmlRpcClientBuilder AddConverter(XmlRpcConverter converter)
+    {
+        _converters.Add(converter);
         return this;
     }
 
@@ -202,6 +215,9 @@ public class XmlRpcClientBuilder
         {
             UseExtendedTypes = _useExtendedTypes
         };
+        
+        foreach (var converter in _converters)
+            client.AddConverter(converter);
 
         if (_userAgent != null)
         {

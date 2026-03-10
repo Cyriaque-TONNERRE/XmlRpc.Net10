@@ -710,15 +710,28 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
     /// <returns>The converted value.</returns>
-    public T? ToObject<T>() => (T?)ToObject(typeof(T));
+    public T? ToObject<T>(IReadOnlyList<XmlRpcConverter>? converters = null)
+        => (T?)ToObject(typeof(T), converters);
+    
 
     /// <summary>
     /// Converts the XmlRpcValue to a specific .NET type.
     /// </summary>
     /// <param name="targetType">The target type.</param>
+    /// <param name="converters">Optional list of custom converters to use during conversion.</param>
     /// <returns>The converted value.</returns>
-    public object? ToObject(Type targetType)
+    public object? ToObject(Type targetType, IReadOnlyList<XmlRpcConverter>? converters = null)
     {
+        // Search for custom converters first
+        if (converters != null)
+        {
+            foreach (var converter in converters)
+            {
+                if (converter.CanConvert(targetType))
+                    return converter.Read(this, targetType);
+            }
+        }
+        
         if (targetType == typeof(XmlRpcValue))
             return this;
 
@@ -752,7 +765,7 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
         if (underlyingType == typeof(Dictionary<string, object>) ||
             (underlyingType.IsGenericType && underlyingType.GetGenericTypeDefinition() == typeof(Dictionary<,>)))
         {
-            return AsStruct.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToObject());
+            return AsStruct.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToObject(typeof(object), converters));
         }
 
         // Handle arrays and lists
@@ -763,7 +776,7 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
             var result = Array.CreateInstance(elementType, sourceArray.Length);
             for (var i = 0; i < sourceArray.Length; i++)
             {
-                result.SetValue(sourceArray[i].ToObject(elementType), i);
+                result.SetValue(sourceArray[i].ToObject(elementType, converters), i);
             }
             return result;
         }
@@ -777,7 +790,7 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
             var list = (IList)Activator.CreateInstance(listType)!;
             foreach (var item in sourceArray)
             {
-                list.Add(item.ToObject(elementType));
+                list.Add(item.ToObject(elementType, converters));
             }
             return list;
         }
@@ -785,13 +798,13 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
         // Handle complex objects via struct
         if (_type == XmlRpcType.Struct)
         {
-            return ConvertStructToObject(underlyingType);
+            return ConvertStructToObject(underlyingType, converters);
         }
 
         throw new InvalidOperationException($"Cannot convert {_type} to {targetType.FullName}");
     }
 
-    private object? ConvertStructToObject(Type targetType)
+    private object? ConvertStructToObject(Type targetType, IReadOnlyList<XmlRpcConverter>? converters = null)
     {
         var properties = targetType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
         var result = Activator.CreateInstance(targetType);
@@ -812,7 +825,7 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
             var key = dict.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
             if (key != null && dict.TryGetValue(key, out var value))
             {
-                prop.SetValue(result, value.ToObject(prop.PropertyType));
+                prop.SetValue(result, value.ToObject(prop.PropertyType, converters));
             }
         }
 
