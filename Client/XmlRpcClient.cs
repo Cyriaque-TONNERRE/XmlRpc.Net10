@@ -158,7 +158,10 @@ public class XmlRpcClient : IXmlRpcClient
         object?[]? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new XmlRpcRequest(methodName, parameters ?? Array.Empty<object?>());
+        var xmlRpcParams = (parameters ?? Array.Empty<object?>())
+            .Select(p => XmlRpcValue.FromObject(p, _serializer.Converters))
+            .ToArray();
+        var request = new XmlRpcRequest(methodName, xmlRpcParams);
         return await InvokeAsync(request, cancellationToken).ConfigureAwait(false);
     }
 

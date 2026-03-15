@@ -13,6 +13,9 @@ public abstract class XmlRpcConverter
 
     /// <summary>Converts an XmlRpcValue to the target .NET type.</summary>
     public abstract object? Read(XmlRpcValue value, Type typeToConvert);
+
+    /// <summary>Converts a .NET object to an XmlRpcValue.</summary>
+    public abstract XmlRpcValue Write(object value, Type typeToConvert);
 }
 
 /// <summary>
@@ -35,4 +38,10 @@ public abstract class XmlRpcConverterFactory : XmlRpcConverter
     /// <returns></returns>
     public sealed override object? Read(XmlRpcValue value, Type typeToConvert)
         => CreateConverter(typeToConvert).Read(value, typeToConvert);
+
+    /// <summary>
+    /// The factory delegates Write() to the concrete converter it creates.
+    /// </summary>
+    public sealed override XmlRpcValue Write(object value, Type typeToConvert)
+        => CreateConverter(typeToConvert).Write(value, typeToConvert);
 }

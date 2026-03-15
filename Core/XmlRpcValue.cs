@@ -123,6 +123,20 @@ public class XmlRpcValue : IEquatable<XmlRpcValue>, IComparable<XmlRpcValue>
     /// <param name="value">The .NET object to convert.</param>
     /// <returns>A new XmlRpcValue representing the object.</returns>
     /// <exception cref="ArgumentException">Thrown when the object type is not supported.</exception>
+    public static XmlRpcValue FromObject(object? value, IReadOnlyList<XmlRpcConverter>? converters)
+    {
+        if (converters != null && value != null)
+        {
+            var type = value.GetType();
+            foreach (var converter in converters)
+            {
+                if (converter.CanConvert(type))
+                    return converter.Write(value, type);
+            }
+        }
+        return FromObject(value);
+    }
+
     public static XmlRpcValue FromObject(object? value) => value switch
     {
         null => Nil,
