@@ -11,34 +11,12 @@ using System.Linq;
 namespace XmlRpc.Core;
 
 /// <summary>
-/// Represents an XML-RPC request.
+///     Represents an XML-RPC request.
 /// </summary>
 public class XmlRpcRequest
 {
     /// <summary>
-    /// Gets or sets the name of the method to call.
-    /// </summary>
-    public string MethodName { get; set; }
-
-    /// <summary>
-    /// Gets or sets the parameters for the method call.
-    /// </summary>
-    public XmlRpcValue[] Parameters { get; set; }
-
-    /// <summary>
-    /// Gets the number of parameters.
-    /// </summary>
-    public int ParameterCount => Parameters.Length;
-
-    /// <summary>
-    /// Gets a parameter by index.
-    /// </summary>
-    /// <param name="index">The parameter index.</param>
-    /// <returns>The parameter value.</returns>
-    public XmlRpcValue this[int index] => Parameters[index];
-
-    /// <summary>
-    /// Initializes a new instance of the XmlRpcRequest class.
+    ///     Initializes a new instance of the XmlRpcRequest class.
     /// </summary>
     public XmlRpcRequest()
     {
@@ -47,7 +25,7 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcRequest class with the specified method name.
+    ///     Initializes a new instance of the XmlRpcRequest class with the specified method name.
     /// </summary>
     /// <param name="methodName">The name of the method to call.</param>
     public XmlRpcRequest(string methodName)
@@ -57,7 +35,7 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcRequest class with the specified method name and parameters.
+    ///     Initializes a new instance of the XmlRpcRequest class with the specified method name and parameters.
     /// </summary>
     /// <param name="methodName">The name of the method to call.</param>
     /// <param name="parameters">The parameters for the method call.</param>
@@ -68,7 +46,7 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcRequest class with the specified method name and object parameters.
+    ///     Initializes a new instance of the XmlRpcRequest class with the specified method name and object parameters.
     /// </summary>
     /// <param name="methodName">The name of the method to call.</param>
     /// <param name="parameters">The parameters for the method call.</param>
@@ -79,22 +57,50 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Creates a new request with the specified method name.
+    ///     Gets or sets the name of the method to call.
+    /// </summary>
+    public string MethodName { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the parameters for the method call.
+    /// </summary>
+    public XmlRpcValue[] Parameters { get; set; }
+
+    /// <summary>
+    ///     Gets the number of parameters.
+    /// </summary>
+    public int ParameterCount => Parameters.Length;
+
+    /// <summary>
+    ///     Gets a parameter by index.
+    /// </summary>
+    /// <param name="index">The parameter index.</param>
+    /// <returns>The parameter value.</returns>
+    public XmlRpcValue this[int index] => Parameters[index];
+
+    /// <summary>
+    ///     Creates a new request with the specified method name.
     /// </summary>
     /// <param name="methodName">The name of the method to call.</param>
     /// <returns>A new XmlRpcRequest instance.</returns>
-    public static XmlRpcRequest Create(string methodName) => new(methodName);
+    public static XmlRpcRequest Create(string methodName)
+    {
+        return new XmlRpcRequest(methodName);
+    }
 
     /// <summary>
-    /// Creates a new request with the specified method name and parameters.
+    ///     Creates a new request with the specified method name and parameters.
     /// </summary>
     /// <param name="methodName">The name of the method to call.</param>
     /// <param name="parameters">The parameters for the method call.</param>
     /// <returns>A new XmlRpcRequest instance.</returns>
-    public static XmlRpcRequest Create(string methodName, params object?[] parameters) => new(methodName, parameters);
+    public static XmlRpcRequest Create(string methodName, params object?[] parameters)
+    {
+        return new XmlRpcRequest(methodName, parameters);
+    }
 
     /// <summary>
-    /// Adds a parameter to the request.
+    ///     Adds a parameter to the request.
     /// </summary>
     /// <param name="parameter">The parameter to add.</param>
     /// <returns>This request instance for method chaining.</returns>
@@ -105,7 +111,7 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Adds a parameter to the request.
+    ///     Adds a parameter to the request.
     /// </summary>
     /// <param name="parameter">The parameter to add.</param>
     /// <returns>This request instance for method chaining.</returns>
@@ -116,7 +122,7 @@ public class XmlRpcRequest
     }
 
     /// <summary>
-    /// Adds multiple parameters to the request.
+    ///     Adds multiple parameters to the request.
     /// </summary>
     /// <param name="parameters">The parameters to add.</param>
     /// <returns>This request instance for method chaining.</returns>
@@ -127,5 +133,8 @@ public class XmlRpcRequest
     }
 
     /// <inheritdoc />
-    public override string ToString() => $"XmlRpcRequest({MethodName}, {Parameters.Length} params)";
+    public override string ToString()
+    {
+        return $"XmlRpcRequest({MethodName}, {Parameters.Length} params)";
+    }
 }

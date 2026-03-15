@@ -18,92 +18,16 @@ using XmlRpc.Serialization;
 namespace XmlRpc.Client;
 
 /// <summary>
-/// A modern XML-RPC client for .NET 10.
+///     A modern XML-RPC client for .NET 10.
 /// </summary>
 public class XmlRpcClient : IXmlRpcClient
 {
     private readonly HttpClient _httpClient;
     private readonly XmlRpcSerializer _serializer;
-    private readonly Uri _serverUri;
     private bool _disposed;
 
     /// <summary>
-    /// Gets the server URI.
-    /// </summary>
-    public Uri ServerUri => _serverUri;
-
-    /// <summary>
-    /// Gets or sets the timeout for HTTP requests.
-    /// </summary>
-    public TimeSpan Timeout
-    {
-        get => _httpClient.Timeout;
-        set => _httpClient.Timeout = value;
-    }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to use extended types (i8, nil, etc.).
-    /// </summary>
-    public bool UseExtendedTypes
-    {
-        get => _serializer.UseExtendedTypes;
-        set => _serializer.UseExtendedTypes = value;
-    }
-    
-    /// <summary>
-    /// Registers a custom converter for deserialization.
-    /// </summary>
-    public XmlRpcClient AddConverter(XmlRpcConverter converter)
-    {
-        _serializer.AddConverter(converter);
-        return this;
-    }
-
-    /// <summary>
-    /// Converts an XmlRpcValue to the given type, applying all registered custom converters.
-    /// Used internally by the proxy generator.
-    /// </summary>
-    public object? ConvertValue(XmlRpcValue value, Type targetType)
-        => value.ToObject(targetType, _serializer.Converters);
-
-    /// <summary>
-    /// Gets the headers that will be sent with each request.
-    /// </summary>
-    public Dictionary<string, string> Headers { get; }
-
-    /// <summary>
-    /// Gets or sets the user agent string.
-    /// </summary>
-    public string? UserAgent
-    {
-        get => _httpClient.DefaultRequestHeaders.UserAgent.FirstOrDefault()?.ToString();
-        set
-        {
-            _httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            if (!string.IsNullOrEmpty(value))
-            {
-                _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(value);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Occurs when a request is about to be sent.
-    /// </summary>
-    public event EventHandler<XmlRpcRequestEventArgs>? RequestSending;
-
-    /// <summary>
-    /// Occurs when a response is received.
-    /// </summary>
-    public event EventHandler<XmlRpcResponseEventArgs>? ResponseReceived;
-
-    /// <summary>
-    /// Occurs when an error occurs.
-    /// </summary>
-    public event EventHandler<XmlRpcErrorEventArgs>? ErrorOccurred;
-
-    /// <summary>
-    /// Initializes a new instance of the XmlRpcClient class.
+    ///     Initializes a new instance of the XmlRpcClient class.
     /// </summary>
     /// <param name="serverUrl">The URL of the XML-RPC server.</param>
     public XmlRpcClient(string serverUrl)
@@ -112,7 +36,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcClient class.
+    ///     Initializes a new instance of the XmlRpcClient class.
     /// </summary>
     /// <param name="serverUri">The URI of the XML-RPC server.</param>
     public XmlRpcClient(Uri serverUri)
@@ -121,7 +45,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcClient class with a custom HttpClient.
+    ///     Initializes a new instance of the XmlRpcClient class with a custom HttpClient.
     /// </summary>
     /// <param name="serverUrl">The URL of the XML-RPC server.</param>
     /// <param name="httpClient">The HttpClient to use for requests.</param>
@@ -131,23 +55,73 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcClient class with a custom HttpClient.
+    ///     Initializes a new instance of the XmlRpcClient class with a custom HttpClient.
     /// </summary>
     /// <param name="serverUri">The URI of the XML-RPC server.</param>
     /// <param name="httpClient">The HttpClient to use for requests.</param>
     public XmlRpcClient(Uri serverUri, HttpClient httpClient)
     {
-        _serverUri = serverUri ?? throw new ArgumentNullException(nameof(serverUri));
+        ServerUri = serverUri ?? throw new ArgumentNullException(nameof(serverUri));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _serializer = new XmlRpcSerializer();
         Headers = new Dictionary<string, string>();
 
         // Set default user agent
-        UserAgent = $"XmlRpc.Net10/1.0.0 (.NET 10)";
+        UserAgent = "XmlRpc.Net10/1.0.0 (.NET 10)";
     }
 
     /// <summary>
-    /// Invokes an XML-RPC method on the server.
+    ///     Gets or sets the timeout for HTTP requests.
+    /// </summary>
+    public TimeSpan Timeout
+    {
+        get => _httpClient.Timeout;
+        set => _httpClient.Timeout = value;
+    }
+
+    /// <summary>
+    ///     Gets or sets a value indicating whether to use extended types (i8, nil, etc.).
+    /// </summary>
+    public bool UseExtendedTypes
+    {
+        get => _serializer.UseExtendedTypes;
+        set => _serializer.UseExtendedTypes = value;
+    }
+
+    /// <summary>
+    ///     Gets the headers that will be sent with each request.
+    /// </summary>
+    public Dictionary<string, string> Headers { get; }
+
+    /// <summary>
+    ///     Gets or sets the user agent string.
+    /// </summary>
+    public string? UserAgent
+    {
+        get => _httpClient.DefaultRequestHeaders.UserAgent.FirstOrDefault()?.ToString();
+        set
+        {
+            _httpClient.DefaultRequestHeaders.UserAgent.Clear();
+            if (!string.IsNullOrEmpty(value)) _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(value);
+        }
+    }
+
+    /// <summary>
+    ///     Gets the server URI.
+    /// </summary>
+    public Uri ServerUri { get; }
+
+    /// <summary>
+    ///     Converts an XmlRpcValue to the given type, applying all registered custom converters.
+    ///     Used internally by the proxy generator.
+    /// </summary>
+    public object? ConvertValue(XmlRpcValue value, Type targetType)
+    {
+        return value.ToObject(targetType, _serializer.Converters);
+    }
+
+    /// <summary>
+    ///     Invokes an XML-RPC method on the server.
     /// </summary>
     /// <param name="methodName">The name of the method to invoke.</param>
     /// <param name="parameters">The parameters for the method.</param>
@@ -166,7 +140,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Invokes an XML-RPC method on the server.
+    ///     Invokes an XML-RPC method on the server.
     /// </summary>
     /// <param name="request">The request to send.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
@@ -190,16 +164,13 @@ public class XmlRpcClient : IXmlRpcClient
             var content = new StringContent(requestXml, Encoding.UTF8, "text/xml");
 
             // Add custom headers
-            foreach (var header in Headers)
-            {
-                content.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            }
+            foreach (var header in Headers) content.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
             // Raise the request sending event
             RequestSending?.Invoke(this, new XmlRpcRequestEventArgs(request, requestXml));
 
             // Send the request
-            var httpResponse = await _httpClient.PostAsync(_serverUri, content, cancellationToken)
+            var httpResponse = await _httpClient.PostAsync(ServerUri, content, cancellationToken)
                 .ConfigureAwait(false);
 
             // Check for HTTP errors
@@ -250,24 +221,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Invokes an XML-RPC method on the server and returns the result.
-    /// </summary>
-    /// <param name="methodName">The name of the method to invoke.</param>
-    /// <param name="parameters">The parameters for the method.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The return value from the method.</returns>
-    /// <exception cref="XmlRpcFaultException">Thrown if the server returns a fault.</exception>
-    public async Task<XmlRpcValue> InvokeAndGetResultAsync(
-        string methodName,
-        object?[]? parameters = null,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await InvokeAsync(methodName, parameters, cancellationToken).ConfigureAwait(false);
-        return response.GetValueOrThrow();
-    }
-
-    /// <summary>
-    /// Invokes an XML-RPC method on the server and returns the result converted to the specified type.
+    ///     Invokes an XML-RPC method on the server and returns the result converted to the specified type.
     /// </summary>
     /// <typeparam name="T">The type to convert the result to.</typeparam>
     /// <param name="methodName">The name of the method to invoke.</param>
@@ -286,7 +240,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Creates a proxy interface for the XML-RPC server.
+    ///     Creates a proxy interface for the XML-RPC server.
     /// </summary>
     /// <typeparam name="T">The interface type.</typeparam>
     /// <returns>A proxy that implements the interface.</returns>
@@ -296,7 +250,7 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Disposes the client and releases resources.
+    ///     Disposes the client and releases resources.
     /// </summary>
     public void Dispose()
     {
@@ -305,110 +259,128 @@ public class XmlRpcClient : IXmlRpcClient
     }
 
     /// <summary>
-    /// Disposes the client and releases resources.
+    ///     Registers a custom converter for deserialization.
+    /// </summary>
+    public XmlRpcClient AddConverter(XmlRpcConverter converter)
+    {
+        _serializer.AddConverter(converter);
+        return this;
+    }
+
+    /// <summary>
+    ///     Occurs when a request is about to be sent.
+    /// </summary>
+    public event EventHandler<XmlRpcRequestEventArgs>? RequestSending;
+
+    /// <summary>
+    ///     Occurs when a response is received.
+    /// </summary>
+    public event EventHandler<XmlRpcResponseEventArgs>? ResponseReceived;
+
+    /// <summary>
+    ///     Occurs when an error occurs.
+    /// </summary>
+    public event EventHandler<XmlRpcErrorEventArgs>? ErrorOccurred;
+
+    /// <summary>
+    ///     Invokes an XML-RPC method on the server and returns the result.
+    /// </summary>
+    /// <param name="methodName">The name of the method to invoke.</param>
+    /// <param name="parameters">The parameters for the method.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The return value from the method.</returns>
+    /// <exception cref="XmlRpcFaultException">Thrown if the server returns a fault.</exception>
+    public async Task<XmlRpcValue> InvokeAndGetResultAsync(
+        string methodName,
+        object?[]? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await InvokeAsync(methodName, parameters, cancellationToken).ConfigureAwait(false);
+        return response.GetValueOrThrow();
+    }
+
+    /// <summary>
+    ///     Disposes the client and releases resources.
     /// </summary>
     /// <param name="disposing">True if disposing managed resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
         {
-            if (disposing)
-            {
-                _httpClient.Dispose();
-            }
+            if (disposing) _httpClient.Dispose();
             _disposed = true;
         }
     }
 }
 
 /// <summary>
-/// Interface for XML-RPC clients.
+///     Interface for XML-RPC clients.
 /// </summary>
 public interface IXmlRpcClient : IDisposable
 {
     /// <summary>
-    /// Gets the server URI.
+    ///     Gets the server URI.
     /// </summary>
     Uri ServerUri { get; }
 
     /// <summary>
-    /// Invokes an XML-RPC method on the server.
+    ///     Invokes an XML-RPC method on the server.
     /// </summary>
     Task<XmlRpcResponse> InvokeAsync(string methodName, object?[]? parameters, CancellationToken cancellationToken);
-    
+
     /// <summary>
-    /// Invokes an XML-RPC method on the server and returns the result converted to the specified type.
+    ///     Invokes an XML-RPC method on the server and returns the result converted to the specified type.
     /// </summary>
     Task<T?> InvokeAsync<T>(string methodName, object?[]? parameters, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Invokes an XML-RPC method on the server.
+    ///     Invokes an XML-RPC method on the server.
     /// </summary>
     Task<XmlRpcResponse> InvokeAsync(XmlRpcRequest request, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a proxy interface for the XML-RPC server.
+    ///     Creates a proxy interface for the XML-RPC server.
     /// </summary>
     T CreateProxy<T>() where T : class;
 
     /// <summary>
-    /// Converts an XmlRpcValue to the given type, applying all registered custom converters.
+    ///     Converts an XmlRpcValue to the given type, applying all registered custom converters.
     /// </summary>
     object? ConvertValue(XmlRpcValue value, Type targetType);
 }
 
 /// <summary>
-/// Event arguments for request events.
+///     Event arguments for request events.
 /// </summary>
 public class XmlRpcRequestEventArgs : EventArgs
 {
     /// <summary>
-    /// Gets the request.
-    /// </summary>
-    public XmlRpcRequest Request { get; }
-
-    /// <summary>
-    /// Gets the serialized XML.
-    /// </summary>
-    public string XmlContent { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the XmlRpcRequestEventArgs class.
+    ///     Initializes a new instance of the XmlRpcRequestEventArgs class.
     /// </summary>
     public XmlRpcRequestEventArgs(XmlRpcRequest request, string xmlContent)
     {
         Request = request;
         XmlContent = xmlContent;
     }
-}
 
-/// <summary>
-/// Event arguments for response events.
-/// </summary>
-public class XmlRpcResponseEventArgs : EventArgs
-{
     /// <summary>
-    /// Gets the original request.
+    ///     Gets the request.
     /// </summary>
     public XmlRpcRequest Request { get; }
 
     /// <summary>
-    /// Gets the response.
-    /// </summary>
-    public XmlRpcResponse Response { get; }
-
-    /// <summary>
-    /// Gets the raw XML content.
+    ///     Gets the serialized XML.
     /// </summary>
     public string XmlContent { get; }
+}
 
+/// <summary>
+///     Event arguments for response events.
+/// </summary>
+public class XmlRpcResponseEventArgs : EventArgs
+{
     /// <summary>
-    /// Gets the duration of the request.
-    /// </summary>
-    public TimeSpan Duration { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the XmlRpcResponseEventArgs class.
+    ///     Initializes a new instance of the XmlRpcResponseEventArgs class.
     /// </summary>
     public XmlRpcResponseEventArgs(XmlRpcRequest request, XmlRpcResponse response, string xmlContent, TimeSpan duration)
     {
@@ -417,30 +389,35 @@ public class XmlRpcResponseEventArgs : EventArgs
         XmlContent = xmlContent;
         Duration = duration;
     }
-}
 
-/// <summary>
-/// Event arguments for error events.
-/// </summary>
-public class XmlRpcErrorEventArgs : EventArgs
-{
     /// <summary>
-    /// Gets the request that caused the error.
+    ///     Gets the original request.
     /// </summary>
     public XmlRpcRequest Request { get; }
 
     /// <summary>
-    /// Gets the exception that occurred.
+    ///     Gets the response.
     /// </summary>
-    public Exception Exception { get; }
+    public XmlRpcResponse Response { get; }
 
     /// <summary>
-    /// Gets the request XML content, if available.
+    ///     Gets the raw XML content.
     /// </summary>
-    public string? RequestXml { get; }
+    public string XmlContent { get; }
 
     /// <summary>
-    /// Initializes a new instance of the XmlRpcErrorEventArgs class.
+    ///     Gets the duration of the request.
+    /// </summary>
+    public TimeSpan Duration { get; }
+}
+
+/// <summary>
+///     Event arguments for error events.
+/// </summary>
+public class XmlRpcErrorEventArgs : EventArgs
+{
+    /// <summary>
+    ///     Initializes a new instance of the XmlRpcErrorEventArgs class.
     /// </summary>
     public XmlRpcErrorEventArgs(XmlRpcRequest request, Exception exception, string? requestXml)
     {
@@ -448,4 +425,19 @@ public class XmlRpcErrorEventArgs : EventArgs
         Exception = exception;
         RequestXml = requestXml;
     }
+
+    /// <summary>
+    ///     Gets the request that caused the error.
+    /// </summary>
+    public XmlRpcRequest Request { get; }
+
+    /// <summary>
+    ///     Gets the exception that occurred.
+    /// </summary>
+    public Exception Exception { get; }
+
+    /// <summary>
+    ///     Gets the request XML content, if available.
+    /// </summary>
+    public string? RequestXml { get; }
 }

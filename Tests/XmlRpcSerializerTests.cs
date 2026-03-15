@@ -13,7 +13,7 @@ using Xunit;
 namespace XmlRpc.Tests;
 
 /// <summary>
-/// Unit tests for XmlRpcSerializer.
+///     Unit tests for XmlRpcSerializer.
 /// </summary>
 public class XmlRpcSerializerTests
 {

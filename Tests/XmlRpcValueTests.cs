@@ -12,7 +12,7 @@ using Xunit;
 namespace XmlRpc.Tests;
 
 /// <summary>
-/// Unit tests for XmlRpcValue.
+///     Unit tests for XmlRpcValue.
 /// </summary>
 public class XmlRpcValueTests
 {

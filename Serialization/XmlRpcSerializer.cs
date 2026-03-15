@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -16,26 +17,31 @@ using XmlRpc.Core;
 namespace XmlRpc.Serialization;
 
 /// <summary>
-/// Provides functionality for serializing and deserializing XML-RPC messages.
+///     Provides functionality for serializing and deserializing XML-RPC messages.
 /// </summary>
 public class XmlRpcSerializer
 {
     private static readonly Encoding Utf8Encoding = new UTF8Encoding(false);
 
+    private readonly List<XmlRpcConverter> _converters = new();
+
     /// <summary>
-    /// Gets or sets a value indicating whether to use extended types (i8, nil, etc.).
+    ///     Gets or sets a value indicating whether to use extended types (i8, nil, etc.).
     /// </summary>
     public bool UseExtendedTypes { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to indent the XML output.
+    ///     Gets or sets a value indicating whether to indent the XML output.
     /// </summary>
     public bool Indent { get; set; } = false;
 
-    private readonly List<XmlRpcConverter> _converters = new();
+    /// <summary>
+    ///     Read-only view of registered converters, passed to ToObject calls.
+    /// </summary>
+    internal IReadOnlyList<XmlRpcConverter> Converters => _converters;
 
     /// <summary>
-    /// Registers a custom converter.
+    ///     Registers a custom converter.
     /// </summary>
     public XmlRpcSerializer AddConverter(XmlRpcConverter converter)
     {
@@ -44,12 +50,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Read-only view of registered converters, passed to ToObject calls.
-    /// </summary>
-    internal IReadOnlyList<XmlRpcConverter> Converters => _converters;
-    
-    /// <summary>
-    /// Serializes an XML-RPC request to a string.
+    ///     Serializes an XML-RPC request to a string.
     /// </summary>
     /// <param name="request">The request to serialize.</param>
     /// <returns>The XML string.</returns>
@@ -67,7 +68,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Serializes an XML-RPC request to a stream.
+    ///     Serializes an XML-RPC request to a stream.
     /// </summary>
     /// <param name="request">The request to serialize.</param>
     /// <param name="stream">The stream to write to.</param>
@@ -93,7 +94,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Serializes an XML-RPC response to a string.
+    ///     Serializes an XML-RPC response to a string.
     /// </summary>
     /// <param name="response">The response to serialize.</param>
     /// <returns>The XML string.</returns>
@@ -101,19 +102,15 @@ public class XmlRpcSerializer
     {
         XElement innerElement;
         if (response.IsFault)
-        {
             innerElement = new XElement("fault",
                 new XElement("value", SerializeValue(response.Fault!.ToValue()))
             );
-        }
         else
-        {
             innerElement = new XElement("params",
                 new XElement("param",
                     new XElement("value", SerializeValue(response.Value!))
                 )
             );
-        }
 
         var xml = new XDocument(
             new XDeclaration("1.0", "UTF-8", null),
@@ -124,7 +121,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Deserializes an XML-RPC request from a string.
+    ///     Deserializes an XML-RPC request from a string.
     /// </summary>
     /// <param name="xml">The XML string.</param>
     /// <returns>The deserialized request.</returns>
@@ -135,10 +132,10 @@ public class XmlRpcSerializer
         {
             var doc = XDocument.Parse(xml);
             var methodCall = doc.Element("methodCall")
-                ?? throw new XmlRpcSerializationException("Missing methodCall element");
+                             ?? throw new XmlRpcSerializationException("Missing methodCall element");
 
             var methodName = methodCall.Element("methodName")?.Value
-                ?? throw new XmlRpcSerializationException("Missing methodName element");
+                             ?? throw new XmlRpcSerializationException("Missing methodName element");
 
             var paramsElement = methodCall.Element("params");
             var parameters = paramsElement != null
@@ -158,7 +155,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Deserializes an XML-RPC request from a stream.
+    ///     Deserializes an XML-RPC request from a stream.
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <returns>The deserialized request.</returns>
@@ -169,7 +166,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Deserializes an XML-RPC response from a string.
+    ///     Deserializes an XML-RPC response from a string.
     /// </summary>
     /// <param name="xml">The XML string.</param>
     /// <returns>The deserialized response.</returns>
@@ -180,7 +177,7 @@ public class XmlRpcSerializer
         {
             var doc = XDocument.Parse(xml);
             var methodResponse = doc.Element("methodResponse")
-                ?? throw new XmlRpcSerializationException("Missing methodResponse element");
+                                 ?? throw new XmlRpcSerializationException("Missing methodResponse element");
 
             // Check for fault
             var faultElement = methodResponse.Element("fault");
@@ -193,13 +190,13 @@ public class XmlRpcSerializer
 
             // Parse normal response
             var paramsElement = methodResponse.Element("params")
-                ?? throw new XmlRpcSerializationException("Missing params element in response");
+                                ?? throw new XmlRpcSerializationException("Missing params element in response");
 
             var paramElement = paramsElement.Element("param")
-                ?? throw new XmlRpcSerializationException("Missing param element in response");
+                               ?? throw new XmlRpcSerializationException("Missing param element in response");
 
             var valueElement = paramElement.Element("value")
-                ?? throw new XmlRpcSerializationException("Missing value element in response");
+                               ?? throw new XmlRpcSerializationException("Missing value element in response");
 
             var value = DeserializeValue(valueElement);
             return new XmlRpcResponse(value);
@@ -215,7 +212,7 @@ public class XmlRpcSerializer
     }
 
     /// <summary>
-    /// Deserializes an XML-RPC response from a stream.
+    ///     Deserializes an XML-RPC response from a stream.
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <returns>The deserialized response.</returns>
@@ -300,10 +297,8 @@ public class XmlRpcSerializer
         var typeElement = valueElement.FirstNode as XElement;
 
         if (typeElement == null)
-        {
             // No type element means string value (XML-RPC spec allows this)
             return XmlRpcValue.FromString(valueElement.Value);
-        }
 
         return typeElement.Name.LocalName switch
         {
@@ -329,23 +324,18 @@ public class XmlRpcSerializer
 
         string[] formats =
         [
-            "yyyyMMdd'T'HH':'mm':'ss'Z'",   // XAPI: 20250518T08:39:07Z
-            "yyyyMMdd'T'HH':'mm':'ss",       // Standard: 19980717T14:08:55
+            "yyyyMMdd'T'HH':'mm':'ss'Z'", // XAPI: 20250518T08:39:07Z
+            "yyyyMMdd'T'HH':'mm':'ss" // Standard: 19980717T14:08:55
         ];
 
         if (DateTime.TryParseExact(value, formats,
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AdjustToUniversal |
-                System.Globalization.DateTimeStyles.AssumeUniversal,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal |
+                DateTimeStyles.AssumeUniversal,
                 out var dateTime))
-        {
             return XmlRpcValue.FromDateTime(dateTime);
-        }
 
-        if (DateTime.TryParse(value, out dateTime))
-        {
-            return XmlRpcValue.FromDateTime(dateTime);
-        }
+        if (DateTime.TryParse(value, out dateTime)) return XmlRpcValue.FromDateTime(dateTime);
 
         throw new XmlRpcSerializationException($"Invalid dateTime format: {value}");
     }
@@ -357,16 +347,11 @@ public class XmlRpcSerializer
         foreach (var member in structElement.Elements("member"))
         {
             var name = member.Element("name")?.Value;
-            if (name == null)
-            {
-                throw new XmlRpcSerializationException("Struct member missing name element");
-            }
+            if (name == null) throw new XmlRpcSerializationException("Struct member missing name element");
 
             var valueElement = member.Element("value");
             if (valueElement == null)
-            {
                 throw new XmlRpcSerializationException($"Struct member '{name}' missing value element");
-            }
 
             dict[name] = DeserializeValue(valueElement);
         }
@@ -377,7 +362,7 @@ public class XmlRpcSerializer
     private XmlRpcValue DeserializeArray(XElement arrayElement)
     {
         var dataElement = arrayElement.Element("data")
-            ?? throw new XmlRpcSerializationException("Array missing data element");
+                          ?? throw new XmlRpcSerializationException("Array missing data element");
 
         var values = dataElement.Elements("value")
             .Select(DeserializeValue)

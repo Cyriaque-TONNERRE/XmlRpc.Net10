@@ -16,13 +16,13 @@ using Xunit;
 namespace XmlRpc.Tests;
 
 /// <summary>
-/// Unit tests for XmlRpcClient.
+///     Unit tests for XmlRpcClient.
 /// </summary>
 public class XmlRpcClientTests : IDisposable
 {
-    private readonly HttpMessageHandlerMock _httpHandlerMock;
-    private readonly HttpClient _httpClient;
     private readonly XmlRpcClient _client;
+    private readonly HttpClient _httpClient;
+    private readonly HttpMessageHandlerMock _httpHandlerMock;
 
     public XmlRpcClientTests()
     {
@@ -324,7 +324,9 @@ public class XmlRpcClientTests : IDisposable
         {
             await _client.InvokeAsync("test.method");
         }
-        catch { }
+        catch
+        {
+        }
 
         // Assert
         Assert.True(eventRaised);
@@ -361,13 +363,13 @@ public class XmlRpcClientTests : IDisposable
 }
 
 /// <summary>
-/// Mock for HttpMessageHandler.
+///     Mock for HttpMessageHandler.
 /// </summary>
 internal class HttpMessageHandlerMock : HttpMessageHandler
 {
+    private Action<string>? _callback;
     private string? _responseContent;
     private HttpStatusCode _statusCode;
-    private Action<string>? _callback;
 
     public void SetupResponse(string content, HttpStatusCode statusCode)
     {
@@ -383,7 +385,8 @@ internal class HttpMessageHandlerMock : HttpMessageHandler
         _callback = callback;
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
         if (_callback != null && request.Content != null)
         {

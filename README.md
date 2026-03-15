@@ -107,18 +107,18 @@ var posts = await blog.GetRecentPosts("blog1", 10);
 
 ## Types XML-RPC supportés
 
-| Type XML-RPC | Type .NET | Notes |
-|-------------|-----------|-------|
-| `int`, `i4` | `int` | Entier 32 bits |
-| `i8` | `long` | Entier 64 bits (extension) |
-| `boolean` | `bool` | Valeur booléenne |
-| `string` | `string` | Chaîne de caractères |
-| `double` | `double` | Nombre à virgule flottante |
-| `dateTime.iso8601` | `DateTime` | Date et heure |
-| `base64` | `byte[]` | Données binaires |
-| `struct` | `Dictionary<string, XmlRpcValue>` | Dictionnaire clé-valeur |
-| `array` | `XmlRpcValue[]` | Tableau de valeurs |
-| `nil` | `null` | Valeur nulle (extension) |
+| Type XML-RPC       | Type .NET                         | Notes                      |
+|--------------------|-----------------------------------|----------------------------|
+| `int`, `i4`        | `int`                             | Entier 32 bits             |
+| `i8`               | `long`                            | Entier 64 bits (extension) |
+| `boolean`          | `bool`                            | Valeur booléenne           |
+| `string`           | `string`                          | Chaîne de caractères       |
+| `double`           | `double`                          | Nombre à virgule flottante |
+| `dateTime.iso8601` | `DateTime`                        | Date et heure              |
+| `base64`           | `byte[]`                          | Données binaires           |
+| `struct`           | `Dictionary<string, XmlRpcValue>` | Dictionnaire clé-valeur    |
+| `array`            | `XmlRpcValue[]`                   | Tableau de valeurs         |
+| `nil`              | `null`                            | Valeur nulle (extension)   |
 
 ## XmlRpcValue
 

@@ -15,12 +15,12 @@ using XmlRpc.Proxy;
 namespace XmlRpc.Examples;
 
 /// <summary>
-/// Exemples d'utilisation de la bibliothèque XmlRpc.Net10.
+///     Exemples d'utilisation de la bibliothèque XmlRpc.Net10.
 /// </summary>
 public static class Examples
 {
     /// <summary>
-    /// Exemple basique d'utilisation du client XML-RPC.
+    ///     Exemple basique d'utilisation du client XML-RPC.
     /// </summary>
     public static async Task BasicExample()
     {
@@ -34,15 +34,12 @@ public static class Examples
         {
             var methods = response.Value!.AsArray;
             Console.WriteLine($"Méthodes disponibles: {methods.Length}");
-            foreach (var method in methods)
-            {
-                Console.WriteLine($"  - {method.AsString}");
-            }
+            foreach (var method in methods) Console.WriteLine($"  - {method.AsString}");
         }
     }
 
     /// <summary>
-    /// Exemple avec paramètres.
+    ///     Exemple avec paramètres.
     /// </summary>
     public static async Task WithParametersExample()
     {
@@ -55,11 +52,11 @@ public static class Examples
         // Passer différents types de paramètres
         var response = await client.InvokeAsync("test.method", new object?[]
         {
-            42,                    // int
-            "hello world",         // string
-            true,                  // bool
-            3.14159,               // double
-            DateTime.UtcNow,       // DateTime
+            42, // int
+            "hello world", // string
+            true, // bool
+            3.14159, // double
+            DateTime.UtcNow, // DateTime
             new byte[] { 1, 2, 3 } // base64
         });
 
@@ -67,7 +64,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple avec un struct complexe.
+    ///     Exemple avec un struct complexe.
     /// </summary>
     public static async Task StructExample()
     {
@@ -97,7 +94,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple avec gestion des erreurs.
+    ///     Exemple avec gestion des erreurs.
     /// </summary>
     public static async Task ErrorHandlingExample()
     {
@@ -130,7 +127,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple avec le builder de client.
+    ///     Exemple avec le builder de client.
     /// </summary>
     public static async Task BuilderExample()
     {
@@ -140,7 +137,7 @@ public static class Examples
             .WithUserAgent("MyApp/1.0")
             .WithBasicAuth("username", "password")
             .WithHeader("X-API-Version", "2.0")
-            .WithExtendedTypes(true)
+            .WithExtendedTypes()
             .Build();
 
         var response = await client.InvokeAsync("authenticated.method");
@@ -148,7 +145,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple avec interface typée (proxy).
+    ///     Exemple avec interface typée (proxy).
     /// </summary>
     public static async Task ProxyExample()
     {
@@ -157,10 +154,7 @@ public static class Examples
 
         // Appels typés
         var users = await api.GetUsers(10);
-        foreach (var user in users)
-        {
-            Console.WriteLine($"User: {user.Name} ({user.Email})");
-        }
+        foreach (var user in users) Console.WriteLine($"User: {user.Name} ({user.Email})");
 
         var newUserId = await api.CreateUser(new CreateUserRequest
         {
@@ -173,7 +167,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple avec événements.
+    ///     Exemple avec événements.
     /// </summary>
     public static async Task EventsExample()
     {
@@ -188,22 +182,16 @@ public static class Examples
         client.ResponseReceived += (sender, args) =>
         {
             Console.WriteLine($"[RESPONSE] Duration: {args.Duration.TotalMilliseconds}ms");
-            if (args.Response.IsSuccess)
-            {
-                Console.WriteLine($"[RESULT] {args.Response.Value}");
-            }
+            if (args.Response.IsSuccess) Console.WriteLine($"[RESULT] {args.Response.Value}");
         };
 
-        client.ErrorOccurred += (sender, args) =>
-        {
-            Console.WriteLine($"[ERROR] {args.Exception.Message}");
-        };
+        client.ErrorOccurred += (sender, args) => { Console.WriteLine($"[ERROR] {args.Exception.Message}"); };
 
         await client.InvokeAsync("test.method");
     }
 
     /// <summary>
-    /// Exemple avec annulation (cancellation).
+    ///     Exemple avec annulation (cancellation).
     /// </summary>
     public static async Task CancellationExample()
     {
@@ -227,7 +215,7 @@ public static class Examples
     }
 
     /// <summary>
-    /// Exemple de désérialisation vers un objet complexe.
+    ///     Exemple de désérialisation vers un objet complexe.
     /// </summary>
     public static async Task DeserializationExample()
     {
@@ -250,7 +238,7 @@ public static class Examples
 #region Proxy Interfaces
 
 /// <summary>
-/// Interface exemple pour un API.
+///     Interface exemple pour un API.
 /// </summary>
 [XmlRpcService]
 public interface IMyApi
@@ -269,60 +257,47 @@ public interface IMyApi
 }
 
 /// <summary>
-/// Requête de création d'utilisateur.
+///     Requête de création d'utilisateur.
 /// </summary>
 public class CreateUserRequest
 {
-    [XmlRpcMember("name")]
-    public string? Name { get; set; }
+    [XmlRpcMember("name")] public string? Name { get; set; }
 
-    [XmlRpcMember("email")]
-    public string? Email { get; set; }
+    [XmlRpcMember("email")] public string? Email { get; set; }
 
-    [XmlRpcMember("role")]
-    public string? Role { get; set; }
+    [XmlRpcMember("role")] public string? Role { get; set; }
 }
 
 /// <summary>
-/// Informations utilisateur.
+///     Informations utilisateur.
 /// </summary>
 public class UserInfo
 {
-    [XmlRpcMember("id")]
-    public int Id { get; set; }
+    [XmlRpcMember("id")] public int Id { get; set; }
 
-    [XmlRpcMember("name")]
-    public string? Name { get; set; }
+    [XmlRpcMember("name")] public string? Name { get; set; }
 
-    [XmlRpcMember("email")]
-    public string? Email { get; set; }
+    [XmlRpcMember("email")] public string? Email { get; set; }
 
-    [XmlRpcMember("role")]
-    public string? Role { get; set; }
+    [XmlRpcMember("role")] public string? Role { get; set; }
 
-    [XmlRpcMember("active")]
-    public bool Active { get; set; }
+    [XmlRpcMember("active")] public bool Active { get; set; }
 }
 
 /// <summary>
-/// Profil utilisateur.
+///     Profil utilisateur.
 /// </summary>
 public class UserProfile
 {
-    [XmlRpcMember("id")]
-    public int Id { get; set; }
+    [XmlRpcMember("id")] public int Id { get; set; }
 
-    [XmlRpcMember("name")]
-    public string? Name { get; set; }
+    [XmlRpcMember("name")] public string? Name { get; set; }
 
-    [XmlRpcMember("email")]
-    public string? Email { get; set; }
+    [XmlRpcMember("email")] public string? Email { get; set; }
 
-    [XmlRpcMember("created_at")]
-    public DateTime CreatedAt { get; set; }
+    [XmlRpcMember("created_at")] public DateTime CreatedAt { get; set; }
 
-    [XmlRpcMember("settings")]
-    public Dictionary<string, object>? Settings { get; set; }
+    [XmlRpcMember("settings")] public Dictionary<string, object>? Settings { get; set; }
 }
 
 #endregion

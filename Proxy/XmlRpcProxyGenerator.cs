@@ -5,38 +5,25 @@
 // </summary>
 
 using System;
-using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using XmlRpc.Client;
+using XmlRpc.Core;
 
 namespace XmlRpc.Proxy;
 
 /// <summary>
-/// Generates dynamic proxy classes for XML-RPC interfaces.
+///     Generates dynamic proxy classes for XML-RPC interfaces using <see cref="DispatchProxy"/>.
+///     
+///     Unlike the previous IL-emit implementation, this version is truly asynchronous:
+///     methods returning <see cref="Task"/> or <see cref="Task{T}"/> will not block
+///     the calling thread while waiting for the HTTP response.
 /// </summary>
 public static class XmlRpcProxyGenerator
 {
-    private static readonly AssemblyBuilder AssemblyBuilder;
-    private static readonly ModuleBuilder ModuleBuilder;
-    private static readonly object LockObject = new();
-    private static int _typeCounter;
-
-    static XmlRpcProxyGenerator()
-    {
-        var assemblyName = new AssemblyName("XmlRpc.Proxies.Dynamic");
-        AssemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
-            assemblyName,
-            AssemblyBuilderAccess.Run);
-
-        ModuleBuilder = AssemblyBuilder.DefineDynamicModule("MainModule");
-    }
-
     /// <summary>
-    /// Creates a proxy instance for the specified interface type.
+    ///     Creates a proxy instance for the specified interface type.
     /// </summary>
     /// <typeparam name="T">The interface type.</typeparam>
     /// <param name="client">The XML-RPC client to use.</param>
@@ -45,322 +32,142 @@ public static class XmlRpcProxyGenerator
     {
         var interfaceType = typeof(T);
         if (!interfaceType.IsInterface)
-        {
             throw new ArgumentException($"Type {interfaceType.Name} must be an interface.", nameof(T));
-        }
 
-        var proxyType = GenerateProxyType(interfaceType);
-        var proxy = (T)Activator.CreateInstance(proxyType, client)!;
-        return proxy;
+        return XmlRpcDispatchProxy.Create<T>(client);
     }
 
     /// <summary>
-    /// Creates a proxy instance for the specified interface type using the given server URL.
+    ///     Creates a proxy instance for the specified interface type using the given server URL.
     /// </summary>
     /// <typeparam name="T">The interface type.</typeparam>
     /// <param name="serverUrl">The XML-RPC server URL.</param>
     /// <returns>A proxy instance implementing the interface.</returns>
     public static T CreateProxy<T>(string serverUrl) where T : class
     {
-        var client = new Client.XmlRpcClient(serverUrl);
+        var client = new XmlRpcClient(serverUrl);
         return CreateProxy<T>(client);
     }
+}
 
-    private static Type GenerateProxyType(Type interfaceType)
+/// <summary>
+///     DispatchProxy-based implementation that provides true async support.
+///     
+///     Each interface method call is intercepted and dispatched as an XML-RPC
+///     request via the underlying <see cref="IXmlRpcClient"/>. Methods returning
+///     <see cref="Task{T}"/> properly propagate the async chain from
+///     <see cref="System.Net.Http.HttpClient.PostAsync"/> without blocking.
+/// </summary>
+public class XmlRpcDispatchProxy : DispatchProxy
+{
+    private IXmlRpcClient _client = null!;
+    private string? _methodPrefix;
+
+    /// <summary>
+    ///     Cache for the open generic method <see cref="InvokeTypedAsync{T}"/>,
+    ///     used to avoid repeated reflection lookups.
+    /// </summary>
+    private static readonly MethodInfo InvokeTypedAsyncMethod =
+        typeof(XmlRpcDispatchProxy).GetMethod(
+            nameof(InvokeTypedAsync),
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+    /// <summary>
+    ///     Creates a proxy of type <typeparamref name="T"/> backed by the given client.
+    /// </summary>
+    internal static T Create<T>(IXmlRpcClient client) where T : class
     {
-        lock (LockObject)
-        {
-            var typeName = $"Proxy_{interfaceType.Name}_{Interlocked.Increment(ref _typeCounter)}";
-            var typeBuilder = ModuleBuilder.DefineType(
-                typeName,
-                TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-                typeof(object),
-                new[] { interfaceType });
+        // DispatchProxy.Create<TInterface, TProxy>() returns an instance of a
+        // runtime-generated class that implements TInterface and extends TProxy.
+        var proxy = Create<T, XmlRpcDispatchProxy>();
+        var dispatchProxy = (XmlRpcDispatchProxy)(object)proxy;
+        dispatchProxy._client = client;
 
-            // Define the _client field
-            var clientField = typeBuilder.DefineField(
-                "_client",
-                typeof(IXmlRpcClient),
-                FieldAttributes.Private | FieldAttributes.InitOnly);
+        var interfaceType = typeof(T);
+        var serviceAttr = interfaceType.GetCustomAttribute<XmlRpcServiceAttribute>();
+        dispatchProxy._methodPrefix = serviceAttr?.MethodPrefix;
+        if (serviceAttr?.UseInterfaceNameAsPrefix == true && string.IsNullOrEmpty(dispatchProxy._methodPrefix))
+            dispatchProxy._methodPrefix = interfaceType.Name;
 
-            // Define the constructor
-            var constructorBuilder = typeBuilder.DefineConstructor(
-                MethodAttributes.Public,
-                CallingConventions.Standard,
-                new[] { typeof(IXmlRpcClient) });
-
-            var ilGenerator = constructorBuilder.GetILGenerator();
-            ilGenerator.Emit(OpCodes.Ldarg_0);
-            ilGenerator.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes)!);
-            ilGenerator.Emit(OpCodes.Ldarg_0);
-            ilGenerator.Emit(OpCodes.Ldarg_1);
-            ilGenerator.Emit(OpCodes.Stfld, clientField);
-            ilGenerator.Emit(OpCodes.Ret);
-
-            // Get method prefix from service attribute
-            var serviceAttr = interfaceType.GetCustomAttribute<XmlRpcServiceAttribute>();
-            var methodPrefix = serviceAttr?.MethodPrefix;
-            if (serviceAttr?.UseInterfaceNameAsPrefix == true && string.IsNullOrEmpty(methodPrefix))
-            {
-                methodPrefix = interfaceType.Name;
-            }
-
-            // Implement each interface method
-            foreach (var method in interfaceType.GetMethods())
-            {
-                ImplementMethod(typeBuilder, method, clientField, methodPrefix);
-            }
-
-            return typeBuilder.CreateType()!;
-        }
+        return proxy;
     }
 
-    private static void ImplementMethod(
-        TypeBuilder typeBuilder,
-        MethodInfo method,
-        FieldBuilder clientField,
-        string? methodPrefix)
+    /// <inheritdoc />
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
-        var methodAttr = method.GetCustomAttribute<XmlRpcMethodAttribute>();
-        var methodName = methodAttr?.MethodName ?? method.Name;
-        if (!string.IsNullOrEmpty(methodPrefix))
+        if (targetMethod == null)
+            throw new ArgumentNullException(nameof(targetMethod));
+
+        // Resolve the XML-RPC method name
+        var methodAttr = targetMethod.GetCustomAttribute<XmlRpcMethodAttribute>();
+        var methodName = methodAttr?.MethodName ?? targetMethod.Name;
+        if (!string.IsNullOrEmpty(_methodPrefix))
+            methodName = $"{_methodPrefix}{methodName}";
+
+        var returnType = targetMethod.ReturnType;
+
+        // Task (void async) — e.g. VM.start, Session.logout
+        if (returnType == typeof(Task))
+            return InvokeVoidAsync(methodName, args);
+
+        // Task<T> (async with result) — e.g. VM.get_name_label, Session.login_with_password
+        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>))
         {
-            methodName = $"{methodPrefix}.{methodName}";
+            var resultType = returnType.GetGenericArguments()[0];
+            var genericMethod = InvokeTypedAsyncMethod.MakeGenericMethod(resultType);
+            return genericMethod.Invoke(this, [methodName, args]);
         }
 
-        var parameters = method.GetParameters();
+        // Synchronous return (non-Task) — fallback, should not occur in XAPI interfaces
+        return InvokeSync(methodName, args, returnType);
+    }
 
-        // Determine the method signature
-        var paramTypes = parameters.Select(p => p.ParameterType).ToArray();
-        var methodBuilder = typeBuilder.DefineMethod(
-            method.Name,
-            MethodAttributes.Public | MethodAttributes.Virtual,
-            method.ReturnType,
-            paramTypes);
+    /// <summary>
+    ///     Handles methods returning <see cref="Task"/> (void async).
+    ///     The returned Task completes when the XML-RPC response is received.
+    /// </summary>
+    private async Task InvokeVoidAsync(string methodName, object?[]? args)
+    {
+        var response = await _client
+            .InvokeAsync(methodName, args, CancellationToken.None)
+            .ConfigureAwait(false);
 
-        var il = methodBuilder.GetILGenerator();
+        response.GetValueOrThrow();
+    }
 
-        // Local variables
-        var paramsArrayLocal = il.DeclareLocal(typeof(object[]));
-        var requestLocal = il.DeclareLocal(typeof(Core.XmlRpcRequest));
-        var responseLocal = il.DeclareLocal(typeof(Task<Core.XmlRpcResponse>));
-        var resultLocal = il.DeclareLocal(typeof(Core.XmlRpcResponse));
+    /// <summary>
+    ///     Handles methods returning <see cref="Task{T}"/> (async with typed result).
+    ///     The returned Task completes when the XML-RPC response is received and converted.
+    /// </summary>
+    private async Task<T> InvokeTypedAsync<T>(string methodName, object?[]? args)
+    {
+        var response = await _client
+            .InvokeAsync(methodName, args, CancellationToken.None)
+            .ConfigureAwait(false);
 
-        // Create parameters array
-        il.Emit(OpCodes.Ldc_I4, parameters.Length);
-        il.Emit(OpCodes.Newarr, typeof(object));
-        il.Emit(OpCodes.Stloc, paramsArrayLocal);
+        var value = response.GetValueOrThrow();
+        return (T)_client.ConvertValue(value, typeof(T))!;
+    }
 
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            il.Emit(OpCodes.Ldloc, paramsArrayLocal);
-            il.Emit(OpCodes.Ldc_I4, i);
-            il.Emit(OpCodes.Ldarg, i + 1); // +1 because 0 is 'this'
-
-            var paramType = parameters[i].ParameterType;
-            if (paramType.IsValueType)
-            {
-                il.Emit(OpCodes.Box, paramType);
-            }
-
-            il.Emit(OpCodes.Stelem_Ref);
-        }
-
-        // Create XmlRpcRequest
-        il.Emit(OpCodes.Ldstr, methodName);
-        il.Emit(OpCodes.Ldloc, paramsArrayLocal);
-        il.Emit(OpCodes.Newobj, typeof(Core.XmlRpcRequest).GetConstructor(new[] { typeof(string), typeof(object[]) })!);
-        il.Emit(OpCodes.Stloc, requestLocal);
-
-        // Call client.InvokeAsync
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Ldfld, clientField);
-        il.Emit(OpCodes.Ldloc, requestLocal);
-        il.Emit(OpCodes.Ldc_I4_0); // CancellationToken.None
-        il.Emit(OpCodes.Call, typeof(CancellationToken).GetProperty("None")!.GetMethod!);
-        il.Emit(OpCodes.Callvirt, typeof(IXmlRpcClient).GetMethod("InvokeAsync", new[] { typeof(Core.XmlRpcRequest), typeof(CancellationToken) })!);
-        il.Emit(OpCodes.Stloc, responseLocal);
-
-        // await the response
-        var awaitMethod = typeof(Task<Core.XmlRpcResponse>).GetMethod("GetAwaiter")!;
-        var getResultMethod = typeof(TaskAwaiter<Core.XmlRpcResponse>).GetMethod("GetResult")!;
-
-        il.Emit(OpCodes.Ldloc, responseLocal);
-        il.Emit(OpCodes.Callvirt, awaitMethod);
-        il.Emit(OpCodes.Callvirt, getResultMethod);
-        il.Emit(OpCodes.Stloc, resultLocal);
-
-        // Handle the response
-        var returnType = method.ReturnType;
+    /// <summary>
+    ///     Fallback for synchronous return types.
+    ///     This blocks the thread and should not be used in normal XAPI interfaces.
+    /// </summary>
+    private object? InvokeSync(string methodName, object?[]? args, Type returnType)
+    {
+        var response = _client
+            .InvokeAsync(methodName, args, CancellationToken.None)
+            .ConfigureAwait(false)
+            .GetAwaiter()
+            .GetResult();
 
         if (returnType == typeof(void))
         {
-            // Just call and ignore result
-            il.Emit(OpCodes.Ret);
-        }
-        else if (typeof(Task).IsAssignableFrom(returnType))
-        {
-            // Async method
-            if (returnType.IsGenericType)
-            {
-                // Task<T>
-                var resultType = returnType.GetGenericArguments()[0];
-                ImplementAsyncGenericReturn(il, resultLocal, resultType, clientField);
-            }
-            else
-            {
-                // Task (non-generic)
-                il.Emit(OpCodes.Ldloc, resultLocal);
-                il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcResponse).GetMethod("GetValueOrThrow")!);
-                il.Emit(OpCodes.Pop);
-                il.Emit(OpCodes.Call, typeof(Task).GetProperty("CompletedTask")!.GetMethod!);
-            }
-            il.Emit(OpCodes.Ret); // required for both Task and Task<T> branches
-        }
-        else
-        {
-            // Synchronous return
-            ImplementSyncReturn(il, resultLocal, returnType, clientField);
+            response.GetValueOrThrow();
+            return null;
         }
 
-        typeBuilder.DefineMethodOverride(methodBuilder, method);
-    }
-
-    private static void ImplementAsyncGenericReturn(ILGenerator il, LocalBuilder resultLocal, Type resultType, FieldBuilder clientField)
-    {
-        // Get the value or throw
-        il.Emit(OpCodes.Ldloc, resultLocal);
-        il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcResponse).GetMethod("GetValueOrThrow")!);
-
-        // Convert to result type
-        if (resultType == typeof(Core.XmlRpcValue))
-        {
-            // Return as-is
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(string))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsString")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(int))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsInteger")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(long))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsLong")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(bool))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsBoolean")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(double))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsDouble")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(DateTime))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsDateTime")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else if (resultType == typeof(byte[]))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsBase64")!.GetMethod!);
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-        else
-        {
-            // Use ConvertValue so custom converters (e.g. XenRefConverterFactory) are applied
-            var valueLocal = il.DeclareLocal(typeof(Core.XmlRpcValue));
-            il.Emit(OpCodes.Stloc, valueLocal);
-
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldfld, clientField);
-            il.Emit(OpCodes.Ldloc, valueLocal);
-            il.Emit(OpCodes.Ldtoken, resultType);
-            il.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle")!);
-            il.Emit(OpCodes.Callvirt, typeof(IXmlRpcClient).GetMethod("ConvertValue")!);
-
-            if (resultType.IsValueType)
-                il.Emit(OpCodes.Unbox_Any, resultType);
-            else
-                il.Emit(OpCodes.Castclass, resultType);
-
-            il.Emit(OpCodes.Call, typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(resultType)!);
-        }
-    }
-
-    private static void ImplementSyncReturn(ILGenerator il, LocalBuilder resultLocal, Type returnType, FieldBuilder clientField)
-    {
-        // Get the value or throw
-        il.Emit(OpCodes.Ldloc, resultLocal);
-        il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcResponse).GetMethod("GetValueOrThrow")!);
-
-        // Convert to return type
-        if (returnType == typeof(Core.XmlRpcValue))
-        {
-            // Return as-is
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(string))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsString")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(int))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsInteger")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(long))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsLong")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(bool))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsBoolean")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(double))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsDouble")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(DateTime))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsDateTime")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else if (returnType == typeof(byte[]))
-        {
-            il.Emit(OpCodes.Callvirt, typeof(Core.XmlRpcValue).GetProperty("AsBase64")!.GetMethod!);
-            il.Emit(OpCodes.Ret);
-        }
-        else
-        {
-            // Use ConvertValue so custom converters (e.g. XenRefConverterFactory) are applied
-            var valueLocal = il.DeclareLocal(typeof(Core.XmlRpcValue));
-            il.Emit(OpCodes.Stloc, valueLocal);
-
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldfld, clientField);
-            il.Emit(OpCodes.Ldloc, valueLocal);
-            il.Emit(OpCodes.Ldtoken, returnType);
-            il.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle")!);
-            il.Emit(OpCodes.Callvirt, typeof(IXmlRpcClient).GetMethod("ConvertValue")!);
-
-            if (returnType.IsValueType)
-                il.Emit(OpCodes.Unbox_Any, returnType);
-            else
-                il.Emit(OpCodes.Castclass, returnType);
-
-            il.Emit(OpCodes.Ret);
-        }
+        var value = response.GetValueOrThrow();
+        return _client.ConvertValue(value, returnType);
     }
 }

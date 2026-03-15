@@ -12,7 +12,7 @@ using Xunit;
 namespace XmlRpc.Tests;
 
 /// <summary>
-/// Unit tests for XmlRpcClientBuilder.
+///     Unit tests for XmlRpcClientBuilder.
 /// </summary>
 public class XmlRpcClientBuilderTests
 {
@@ -62,7 +62,7 @@ public class XmlRpcClientBuilderTests
     {
         var client = XmlRpcClientBuilder.Create()
             .WithServerUrl("http://example.com/xmlrpc")
-            .WithExtendedTypes(true)
+            .WithExtendedTypes()
             .Build();
 
         Assert.True(client.UseExtendedTypes);

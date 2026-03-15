@@ -3,8 +3,8 @@
 namespace XmlRpc.Core;
 
 /// <summary>
-/// Base class for custom XML-RPC converters.
-/// Inspired by System.Text.Json's JsonConverter pattern.
+///     Base class for custom XML-RPC converters.
+///     Inspired by System.Text.Json's JsonConverter pattern.
 /// </summary>
 public abstract class XmlRpcConverter
 {
@@ -19,29 +19,33 @@ public abstract class XmlRpcConverter
 }
 
 /// <summary>
-/// A converter factory for handling open generic types (e.g. XenRef&lt;&gt;, List&lt;&gt;).
-/// Mirrors the JsonConverterFactory pattern from System.Text.Json.
+///     A converter factory for handling open generic types (e.g. XenRef&lt;&gt;, List&lt;&gt;).
+///     Mirrors the JsonConverterFactory pattern from System.Text.Json.
 /// </summary>
 public abstract class XmlRpcConverterFactory : XmlRpcConverter
 {
     /// <summary>
-    /// Creates a concrete converter for the specific closed generic type.
-    /// E.g.: given XenRef&lt;VM&gt;, returns a XenRefConverter&lt;VM&gt;.
+    ///     Creates a concrete converter for the specific closed generic type.
+    ///     E.g.: given XenRef&lt;VM&gt;, returns a XenRefConverter&lt;VM&gt;.
     /// </summary>
     public abstract XmlRpcConverter CreateConverter(Type typeToConvert);
-    
+
     /// <summary>
-    /// The factory delegates Read() to the concrete converter it creates.
+    ///     The factory delegates Read() to the concrete converter it creates.
     /// </summary>
     /// <param name="value"></param>
     /// <param name="typeToConvert"></param>
     /// <returns></returns>
     public sealed override object? Read(XmlRpcValue value, Type typeToConvert)
-        => CreateConverter(typeToConvert).Read(value, typeToConvert);
+    {
+        return CreateConverter(typeToConvert).Read(value, typeToConvert);
+    }
 
     /// <summary>
-    /// The factory delegates Write() to the concrete converter it creates.
+    ///     The factory delegates Write() to the concrete converter it creates.
     /// </summary>
     public sealed override XmlRpcValue Write(object value, Type typeToConvert)
-        => CreateConverter(typeToConvert).Write(value, typeToConvert);
+    {
+        return CreateConverter(typeToConvert).Write(value, typeToConvert);
+    }
 }

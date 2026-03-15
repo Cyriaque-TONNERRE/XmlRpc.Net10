@@ -13,23 +13,23 @@ using XmlRpc.Core;
 namespace XmlRpc.Client;
 
 /// <summary>
-/// A builder for creating XML-RPC clients with custom configuration.
+///     A builder for creating XML-RPC clients with custom configuration.
 /// </summary>
 public class XmlRpcClientBuilder
 {
-    private Uri? _serverUri;
-    private TimeSpan _timeout = TimeSpan.FromSeconds(100);
-    private string? _userAgent;
-    private bool _useExtendedTypes = true;
     private readonly List<XmlRpcConverter> _converters = new();
     private readonly Dictionary<string, string> _headers = new();
-    private IWebProxy? _proxy;
-    private ICredentials? _credentials;
     private Action<HttpClient>? _configureClient;
     private Action<HttpClientHandler>? _configureHandler;
-    
+    private ICredentials? _credentials;
+    private IWebProxy? _proxy;
+    private Uri? _serverUri;
+    private TimeSpan _timeout = TimeSpan.FromSeconds(100);
+    private bool _useExtendedTypes = true;
+    private string? _userAgent;
+
     /// <summary>
-    /// Sets the server URL.
+    ///     Sets the server URL.
     /// </summary>
     /// <param name="url">The server URL.</param>
     /// <returns>This builder instance.</returns>
@@ -40,7 +40,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Sets the server URI.
+    ///     Sets the server URI.
     /// </summary>
     /// <param name="uri">The server URI.</param>
     /// <returns>This builder instance.</returns>
@@ -51,7 +51,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Sets the request timeout.
+    ///     Sets the request timeout.
     /// </summary>
     /// <param name="timeout">The timeout duration.</param>
     /// <returns>This builder instance.</returns>
@@ -62,7 +62,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Sets the user agent string.
+    ///     Sets the user agent string.
     /// </summary>
     /// <param name="userAgent">The user agent string.</param>
     /// <returns>This builder instance.</returns>
@@ -73,7 +73,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Enables or disables extended XML-RPC types (i8, nil, etc.).
+    ///     Enables or disables extended XML-RPC types (i8, nil, etc.).
     /// </summary>
     /// <param name="useExtendedTypes">Whether to use extended types.</param>
     /// <returns>This builder instance.</returns>
@@ -82,9 +82,9 @@ public class XmlRpcClientBuilder
         _useExtendedTypes = useExtendedTypes;
         return this;
     }
-    
+
     /// <summary>
-    /// Adds a custom converter for XML-RPC serialization/deserialization.
+    ///     Adds a custom converter for XML-RPC serialization/deserialization.
     /// </summary>
     /// <param name="converter">The converter to add.</param>
     /// <returns></returns>
@@ -95,7 +95,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Adds a custom header to all requests.
+    ///     Adds a custom header to all requests.
     /// </summary>
     /// <param name="name">The header name.</param>
     /// <param name="value">The header value.</param>
@@ -107,21 +107,18 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Adds multiple custom headers to all requests.
+    ///     Adds multiple custom headers to all requests.
     /// </summary>
     /// <param name="headers">The headers to add.</param>
     /// <returns>This builder instance.</returns>
     public XmlRpcClientBuilder WithHeaders(IEnumerable<KeyValuePair<string, string>> headers)
     {
-        foreach (var header in headers)
-        {
-            _headers[header.Key] = header.Value;
-        }
+        foreach (var header in headers) _headers[header.Key] = header.Value;
         return this;
     }
 
     /// <summary>
-    /// Sets the proxy for HTTP requests.
+    ///     Sets the proxy for HTTP requests.
     /// </summary>
     /// <param name="proxy">The proxy to use.</param>
     /// <returns>This builder instance.</returns>
@@ -132,7 +129,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Sets the credentials for authentication.
+    ///     Sets the credentials for authentication.
     /// </summary>
     /// <param name="credentials">The credentials.</param>
     /// <returns>This builder instance.</returns>
@@ -143,7 +140,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Sets basic authentication credentials.
+    ///     Sets basic authentication credentials.
     /// </summary>
     /// <param name="username">The username.</param>
     /// <param name="password">The password.</param>
@@ -155,7 +152,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Configures the HttpClient instance.
+    ///     Configures the HttpClient instance.
     /// </summary>
     /// <param name="configure">An action to configure the HttpClient.</param>
     /// <returns>This builder instance.</returns>
@@ -166,7 +163,7 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Configures the HttpClientHandler instance.
+    ///     Configures the HttpClientHandler instance.
     /// </summary>
     /// <param name="configure">An action to configure the HttpClientHandler.</param>
     /// <returns>This builder instance.</returns>
@@ -177,16 +174,14 @@ public class XmlRpcClientBuilder
     }
 
     /// <summary>
-    /// Builds the XML-RPC client.
+    ///     Builds the XML-RPC client.
     /// </summary>
     /// <returns>The configured client.</returns>
     /// <exception cref="InvalidOperationException">Thrown if server URL is not set.</exception>
     public XmlRpcClient Build()
     {
         if (_serverUri == null)
-        {
             throw new InvalidOperationException("Server URL must be set before building the client.");
-        }
 
         var handler = new HttpClientHandler();
 
@@ -215,26 +210,23 @@ public class XmlRpcClientBuilder
         {
             UseExtendedTypes = _useExtendedTypes
         };
-        
+
         foreach (var converter in _converters)
             client.AddConverter(converter);
 
-        if (_userAgent != null)
-        {
-            client.UserAgent = _userAgent;
-        }
+        if (_userAgent != null) client.UserAgent = _userAgent;
 
-        foreach (var header in _headers)
-        {
-            client.Headers[header.Key] = header.Value;
-        }
+        foreach (var header in _headers) client.Headers[header.Key] = header.Value;
 
         return client;
     }
 
     /// <summary>
-    /// Creates a new builder instance.
+    ///     Creates a new builder instance.
     /// </summary>
     /// <returns>A new XmlRpcClientBuilder.</returns>
-    public static XmlRpcClientBuilder Create() => new();
+    public static XmlRpcClientBuilder Create()
+    {
+        return new XmlRpcClientBuilder();
+    }
 }
