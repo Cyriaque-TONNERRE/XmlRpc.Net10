@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.Serialization;
 
 namespace XmlRpc.Core;
 
@@ -30,19 +29,6 @@ public class XmlRpcFaultException : Exception
     }
 
     /// <summary>
-    ///     Initializes a new instance of the XmlRpcFaultException class with serialized data.
-    /// </summary>
-    /// <param name="info">The serialization info.</param>
-    /// <param name="context">The streaming context.</param>
-    protected XmlRpcFaultException(SerializationInfo info,
-        StreamingContext context)
-        : base(info, context)
-    {
-        FaultCode = info.GetInt32(nameof(FaultCode));
-        Fault = new XmlRpcFault(FaultCode, info.GetString("FaultString") ?? string.Empty);
-    }
-
-    /// <summary>
     ///     Gets the fault code.
     /// </summary>
     public int FaultCode { get; }
@@ -51,15 +37,6 @@ public class XmlRpcFaultException : Exception
     ///     Gets the fault information.
     /// </summary>
     public XmlRpcFault Fault { get; }
-
-    /// <inheritdoc />
-    public override void GetObjectData(SerializationInfo info,
-        StreamingContext context)
-    {
-        base.GetObjectData(info, context);
-        info.AddValue(nameof(FaultCode), FaultCode);
-        info.AddValue("FaultString", Fault.FaultString);
-    }
 }
 
 /// <summary>

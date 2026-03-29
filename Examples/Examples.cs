@@ -222,9 +222,12 @@ public static class Examples
             // Désérialiser vers un type spécifique
             var profile = response.Value!.ToObject<UserProfile>();
 
-            Console.WriteLine($"Name: {profile.Name}");
-            Console.WriteLine($"Email: {profile.Email}");
-            Console.WriteLine($"Created: {profile.CreatedAt}");
+            if (profile != null)
+            {
+                Console.WriteLine($"Name: {profile.Name}");
+                Console.WriteLine($"Email: {profile.Email}");
+                Console.WriteLine($"Created: {profile.CreatedAt}");
+            }
         }
     }
 }
