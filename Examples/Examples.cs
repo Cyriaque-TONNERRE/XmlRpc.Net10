@@ -1,9 +1,3 @@
-// <summary>
-// XmlRpc.Net10 - A modern XML-RPC client library for .NET 10
-// Copyright (c) 2026 XmlRpc.Net10 Contributors
-// Licensed under the MIT License
-// </summary>
-
 using System;
 using System.Collections.Generic;
 using System.Threading;
